@@ -107,14 +107,16 @@ class Processor(BiliLive):
         self.danmu_path = danmu_path
         self.global_start = utils.get_global_start_from_records(
             self.record_dir)
+        self.room_name = utils.get_room_name_from_records(self.record_dir) if config.get(
+            'root', {}).get('room_name_in_naming', False) else ""
         self.merge_conf_path = utils.get_merge_conf_path(
-            self.room_id, self.global_start, config.get('root', {}).get('data_path', "./"))
+            self.room_id, self.global_start, self.room_name, config.get('root', {}).get('data_path', "./"))
         self.merged_file_path = utils.get_merged_filename(
-            self.room_id, self.global_start, config.get('root', {}).get('data_path', "./"))
+            self.room_id, self.global_start, self.room_name, config.get('root', {}).get('data_path', "./"))
         self.outputs_dir = utils.init_outputs_dir(
-            self.room_id, self.global_start, config.get('root', {}).get('data_path', "./"))
+            self.room_id, self.global_start, self.room_name, config.get('root', {}).get('data_path', "./"))
         self.splits_dir = utils.init_splits_dir(
-            self.room_id, self.global_start, self.config.get('root', {}).get('data_path', "./"))
+            self.room_id, self.global_start, self.room_name, self.config.get('root', {}).get('data_path', "./"))
         self.times = []
         self.live_start = self.global_start
         self.live_duration = 0
@@ -130,6 +132,7 @@ class Processor(BiliLive):
     def pre_concat(self) -> None:
         filelist = os.listdir(self.record_dir)
         with open(self.merge_conf_path, "w", encoding="utf-8") as f:
+            ts_path_list = []
             for filename in filelist:
                 if os.path.splitext(
                         os.path.join(self.record_dir, filename))[1] == ".flv" and os.path.getsize(os.path.join(self.record_dir, filename)) > 1024*1024:
@@ -144,8 +147,11 @@ class Processor(BiliLive):
                                      'format']['duration'])
                     start_time = get_start_time(filename)
                     self.times.append((start_time, duration))
-                    f.write(
-                        f"file '{os.path.abspath(ts_path)}'\n")
+                    ts_path_list.append(os.path.abspath(ts_path))
+            ts_path_list.sort()
+            for full_ts_path in ts_path_list:
+                f.write(
+                    f"file '{full_ts_path}'\n")
         _ = concat(self.merge_conf_path, self.merged_file_path,
                    self.ffmpeg_logfile_hander)
         self.times.sort(key=lambda x: x[0])
